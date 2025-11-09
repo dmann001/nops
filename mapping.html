@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOPS - Magnetic Fingerprint Mapping</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .status-card {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4299e1;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .status-dot.idle { background-color: #a0aec0; }
+        .status-dot.ready { background-color: #48bb78; }
+        .status-dot.mapping { background-color: #ed8936; }
+        .status-dot.error { background-color: #f56565; }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+
+        .button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+        }
+
+        .button.primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(66, 153, 225, 0.3);
+        }
+
+        .button.success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+
+        .button.danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+            color: white;
+        }
+
+        .sensor-data {
+            background: #1a202c;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #4299e1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .gps-info {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .gps-info h4 {
+            color: #234e52;
+            margin-bottom: 10px;
+        }
+
+        .coordinate {
+            font-family: monospace;
+            font-size: 14px;
+            color: #285e61;
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧭 BRAMPS Mapping</h1>
+            <p>Magnetic Fingerprint Collection</p>
+        </div>
+
+        <div class="status-card">
+            <div class="status-indicator">
+                <div class="status-dot idle" id="statusDot"></div>
+                <span id="statusText">Ready to Start Mapping</span>
+            </div>
+            <div id="sessionInfo" style="display: none;">
+                <strong>Session:</strong> <span id="currentSession">-</span><br>
+                <strong>Device:</strong> <span id="currentDevice">-</span>
+            </div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
+        <div class="input-group">
+            <label for="serverUrl">Server URL:</label>
+            <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://localhost:5000">
+        </div>
+
+        <div class="input-group">
+            <label for="deviceId">Device ID:</label>
+            <input type="text" id="deviceId" placeholder="Enter device identifier">
+        </div>
+
+        <div class="input-group">
+            <label for="sessionDescription">Session Description:</label>
+            <textarea id="sessionDescription" rows="2" placeholder="Describe this mapping session (e.g., Building A - Floor 1)"></textarea>
+        </div>
+
+        <button class="button primary" id="startMappingBtn" onclick="startMapping()">
+            📍 Start Mapping Session
+        </button>
+
+        <button class="button danger" id="stopMappingBtn" onclick="stopMapping()" style="display: none;">
+            ⏹️ Stop Mapping Session
+        </button>
+
+        <div class="gps-info" id="gpsInfo" style="display: none;">
+            <h4>📍 Current Location</h4>
+            <div class="coordinate">
+                Lat: <span id="currentLat">-</span><br>
+                Lon: <span id="currentLon">-</span><br>
+                Alt: <span id="currentAlt">-</span>m<br>
+                Accuracy: <span id="gpsAccuracy">-</span>m
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value" id="fingerprintCount">0</div>
+                <div class="stat-label">Fingerprints</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="qualityScore">-</div>
+                <div class="stat-label">Avg Quality</div>
+            </div>
+        </div>
+
+        <div class="sensor-data" id="sensorData">
+            Waiting for sensor data...
+        </div>
+
+        <button class="button primary" onclick="window.location.href='index.html'">
+            🔙 Back to IMU Monitor
+        </button>
+    </div>
+
+    <script>
+        let currentSession = null;
+        let mappingActive = false;
+        let watchId = null;
+        let sensorDataInterval = null;
+        let fingerprintCount = 0;
+        let qualitySum = 0;
+
+        // Initialize device ID with a default
+        document.getElementById('deviceId').value = `device_${Date.now()}`;
+
+        function updateStatus(status, message) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusDot.className = `status-dot ${status}`;
+            statusText.textContent = message;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function updateUI() {
+            const startBtn = document.getElementById('startMappingBtn');
+            const stopBtn = document.getElementById('stopMappingBtn');
+            const sessionInfo = document.getElementById('sessionInfo');
+            const gpsInfo = document.getElementById('gpsInfo');
+
+            if (mappingActive) {
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'block';
+                sessionInfo.style.display = 'block';
+                gpsInfo.style.display = 'block';
+            } else {
+                startBtn.style.display = 'block';
+                stopBtn.style.display = 'none';
+                sessionInfo.style.display = 'none';
+                gpsInfo.style.display = 'none';
+            }
+        }
+
+        async function startMapping() {
+            const serverUrl = document.getElementById('serverUrl').value.trim();
+            const deviceId = document.getElementById('deviceId').value.trim();
+            const description = document.getElementById('sessionDescription').value.trim();
+
+            if (!serverUrl || !deviceId) {
+                showError('Please enter server URL and device ID');
+                return;
+            }
+
+            try {
+                updateStatus('ready', 'Starting mapping session...');
+
+                // Start mapping session on server
+                const response = await fetch(`${serverUrl}/mapping/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        device_id: deviceId,
+                        description: description || 'Mapping session'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentSession = result.session_id;
+                    mappingActive = true;
+                    
+                    document.getElementById('currentSession').textContent = currentSession;
+                    document.getElementById('currentDevice').textContent = deviceId;
+                    
+                    updateStatus('mapping', 'Mapping active - collecting data');
+                    updateUI();
+                    
+                    // Start GPS tracking
+                    startGPSTracking();
+                    
+                    // Start sensor data collection
+                    startSensorCollection();
+                    
+                    showSuccess(`Mapping session ${currentSession} started successfully!`);
+                } else {
+                    throw new Error(result.error || 'Failed to start mapping session');
+                }
+            } catch (error) {
+                console.error('Error starting mapping:', error);
+                showError(`Failed to start mapping: ${error.message}`);
+                updateStatus('error', 'Failed to start mapping');
+            }
+        }
+
+        async function stopMapping() {
+            if (!currentSession) return;
+
+            try {
+                updateStatus('ready', 'Stopping mapping session...');
+
+                const serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/mapping/stop`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSession
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    mappingActive = false;
+                    
+                    // Stop GPS tracking
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                    }
+                    
+                    // Stop sensor collection
+                    if (sensorDataInterval) {
+                        clearInterval(sensorDataInterval);
+                        sensorDataInterval = null;
+                    }
+                    
+                    updateStatus('idle', 'Mapping session stopped');
+                    updateUI();
+                    
+                    showSuccess(`Mapping session stopped. Collected ${result.fingerprint_count} fingerprints.`);
+                    
+                    currentSession = null;
+                    fingerprintCount = 0;
+                    qualitySum = 0;
+                    document.getElementById('fingerprintCount').textContent = '0';
+                    document.getElementById('qualityScore').textContent = '-';
+                } else {
+                    throw new Error(result.error || 'Failed to stop mapping session');
+                }
+            } catch (error) {
+                console.error('Error stopping mapping:', error);
+                showError(`Failed to stop mapping: ${error.message}`);
+            }
+        }
+
+        function startGPSTracking() {
+            if (!navigator.geolocation) {
+                showError('GPS not supported by this device');
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 1000
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const alt = position.coords.altitude || 0;
+                    const accuracy = position.coords.accuracy;
+
+                    document.getElementById('currentLat').textContent = lat.toFixed(6);
+                    document.getElementById('currentLon').textContent = lon.toFixed(6);
+                    document.getElementById('currentAlt').textContent = alt.toFixed(1);
+                    document.getElementById('gpsAccuracy').textContent = accuracy.toFixed(1);
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    showError(`GPS error: ${error.message}`);
+                },
+                options
+            );
+        }
+
+        function startSensorCollection() {
+            // Check for sensor support
+            if (!window.DeviceMotionEvent) {
+                showError('Device motion sensors not supported');
+                return;
+            }
+
+            // Request permission for iOS 13+
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(response => {
+                        if (response == 'granted') {
+                            setupSensorListeners();
+                        } else {
+                            showError('Motion sensor permission denied');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                setupSensorListeners();
+            }
+        }
+
+        function setupSensorListeners() {
+            let lastSensorData = null;
+
+            window.addEventListener('devicemotion', (event) => {
+                if (!mappingActive) return;
+
+                const accel = event.accelerationIncludingGravity;
+                const gyro = event.rotationRate;
+
+                if (accel && gyro) {
+                    lastSensorData = {
+                        accel_x: accel.x || 0,
+                        accel_y: accel.y || 0,
+                        accel_z: accel.z || 0,
+                        gyro_x: gyro.alpha || 0,
+                        gyro_y: gyro.beta || 0,
+                        gyro_z: gyro.gamma || 0,
+                        timestamp: Date.now()
+                    };
+                }
+            });
+
+            // Try to get magnetometer data
+            window.addEventListener('deviceorientationabsolute', (event) => {
+                if (!mappingActive || !lastSensorData) return;
+
+                // Estimate magnetic field from compass heading (rough approximation)
+                const heading = event.alpha || 0;
+                const pitch = event.beta || 0;
+                const roll = event.gamma || 0;
+
+                // Simple magnetic field estimation (this is a placeholder)
+                // In a real implementation, you'd use actual magnetometer readings
+                const mag_x = 20000 * Math.cos(heading * Math.PI / 180);
+                const mag_y = 20000 * Math.sin(heading * Math.PI / 180);
+                const mag_z = 45000 * Math.sin(pitch * Math.PI / 180);
+
+                lastSensorData.mag_x = mag_x;
+                lastSensorData.mag_y = mag_y;
+                lastSensorData.mag_z = mag_z;
+            });
+
+            // Send data periodically
+            sensorDataInterval = setInterval(() => {
+                if (mappingActive && lastSensorData && currentSession) {
+                    sendMappingData(lastSensorData);
+                    updateSensorDisplay(lastSensorData);
+                }
+            }, 1000); // Send every second during mapping
+        }
+
+        async function sendMappingData(sensorData) {
+            const lat = parseFloat(document.getElementById('currentLat').textContent);
+            const lon = parseFloat(document.getElementById('currentLon').textContent);
+            const alt = parseFloat(document.getElementById('currentAlt').textContent);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                console.log('Waiting for GPS fix...');
+                return;
+            }
+
+            try {
+                const serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/mapping/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSession,
+                        latitude: lat,
+                        longitude: lon,
+                        altitude: alt,
+                        mag_x: sensorData.mag_x || 0,
+                        mag_y: sensorData.mag_y || 0,
+                        mag_z: sensorData.mag_z || 0,
+                        timestamp: sensorData.timestamp
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    fingerprintCount++;
+                    qualitySum += result.quality_score;
+                    
+                    document.getElementById('fingerprintCount').textContent = fingerprintCount;
+                    document.getElementById('qualityScore').textContent = 
+                        (qualitySum / fingerprintCount).toFixed(2);
+                        
+                    console.log(`Fingerprint ${fingerprintCount} added, quality: ${result.quality_score.toFixed(2)}`);
+                } else {
+                    console.error('Failed to add fingerprint:', result.error);
+                }
+            } catch (error) {
+                console.error('Error sending mapping data:', error);
+            }
+        }
+
+        function updateSensorDisplay(data) {
+            const sensorDiv = document.getElementById('sensorData');
+            const timestamp = new Date(data.timestamp).toLocaleTimeString();
+            
+            sensorDiv.innerHTML = `
+<strong>Sensor Data (${timestamp})</strong>
+Accel: X=${data.accel_x?.toFixed(2) || 'N/A'} Y=${data.accel_y?.toFixed(2) || 'N/A'} Z=${data.accel_z?.toFixed(2) || 'N/A'}
+Gyro:  X=${data.gyro_x?.toFixed(2) || 'N/A'} Y=${data.gyro_y?.toFixed(2) || 'N/A'} Z=${data.gyro_z?.toFixed(2) || 'N/A'}
+Mag:   X=${data.mag_x?.toFixed(0) || 'N/A'} Y=${data.mag_y?.toFixed(0) || 'N/A'} Z=${data.mag_z?.toFixed(0) || 'N/A'}
+            `.trim();
+        }
+
+        // Initialize
+        updateStatus('idle', 'Ready to Start Mapping');
+        updateUI();
+    </script>
+</body>
+</html>

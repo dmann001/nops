@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOPS - Indoor Navigation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #16213e;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .main-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            background: #0f3460;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #00d9ff;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+
+        #mapCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+        }
+
+        #mapCanvas:active {
+            cursor: grabbing;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #00d9ff;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: #00b8d4;
+            transform: translateY(-2px);
+        }
+
+        .control-btn:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-btn.danger {
+            background: #ff4757;
+            color: white;
+        }
+
+        .control-btn.danger:hover {
+            background: #ee5a6f;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #00d9ff;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            background: #0f3460;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            color: #eee;
+            font-size: 14px;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #00d9ff;
+        }
+
+        .button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, #00d9ff, #00b8d4);
+            color: #1a1a2e;
+        }
+
+        .button.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 217, 255, 0.3);
+        }
+
+        .button.success {
+            background: linear-gradient(135deg, #2ed573, #26de81);
+            color: white;
+        }
+
+        .button.danger {
+            background: linear-gradient(135deg, #ff4757, #ee5a6f);
+            color: white;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #0f3460;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.idle { background: #747d8c; }
+        .status-dot.active { background: #2ed573; }
+        .status-dot.error { background: #ff4757; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: #0f3460;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #00d9ff;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .sensor-panel {
+            background: #0f3460;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .map-info {
+            background: #0f3460;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .map-info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .map-info-label {
+            color: #aaa;
+        }
+
+        .map-info-value {
+            color: #00d9ff;
+            font-weight: 600;
+        }
+
+        .file-upload {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .file-upload input[type=file] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 12px;
+            background: #0f3460;
+            border: 2px dashed #1e3a5f;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-label:hover {
+            border-color: #00d9ff;
+            background: #1e3a5f;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .message.success {
+            background: rgba(46, 213, 115, 0.2);
+            border: 1px solid #2ed573;
+            color: #2ed573;
+        }
+
+        .message.error {
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid #ff4757;
+            color: #ff4757;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            .controls {
+                top: 10px;
+                right: 10px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="section">
+                <div class="section-title">🗺️ Map Management</div>
+                
+                <div class="message" id="message"></div>
+                
+                <div class="input-group">
+                    <label for="serverUrl">Server URL:</label>
+                    <input type="text" id="serverUrl" value="http://localhost:5000">
+                </div>
+
+                <div class="file-upload">
+                    <input type="file" id="mapFile" accept="image/*" onchange="handleFileSelect(event)">
+                    <label for="mapFile" class="file-upload-label">
+                        📁 Upload Floor Plan
+                    </label>
+                </div>
+
+                <div class="input-group">
+                    <label for="mapName">Map Name:</label>
+                    <input type="text" id="mapName" placeholder="Building A - Floor 1">
+                </div>
+
+                <div class="input-group">
+                    <label for="mapScale">Scale (meters/pixel):</label>
+                    <input type="number" id="mapScale" value="0.1" step="0.01">
+                </div>
+
+                <button class="button primary" onclick="uploadMap()">Upload Map</button>
+
+                <div class="input-group">
+                    <label for="mapSelect">Active Map:</label>
+                    <select id="mapSelect" onchange="selectMap()">
+                        <option value="">No map selected</option>
+                    </select>
+                </div>
+
+                <button class="button primary" onclick="refreshMaps()">🔄 Refresh Maps</button>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🧭 Navigation Control</div>
+                
+                <div class="status-indicator">
+                    <div class="status-dot idle" id="navStatus"></div>
+                    <span id="navStatusText">Navigation Idle</span>
+                </div>
+
+                <div class="input-group">
+                    <label for="startX">Start Position X (m):</label>
+                    <input type="number" id="startX" value="0" step="0.1">
+                </div>
+
+                <div class="input-group">
+                    <label for="startY">Start Position Y (m):</label>
+                    <input type="number" id="startY" value="0" step="0.1">
+                </div>
+
+                <div class="input-group">
+                    <label for="startHeading">Start Heading (deg):</label>
+                    <input type="number" id="startHeading" value="0" step="1">
+                </div>
+
+                <button class="button success" id="startNavBtn" onclick="startNavigation()">
+                    ▶️ Start Navigation
+                </button>
+                <button class="button danger" id="stopNavBtn" onclick="stopNavigation()" style="display: none;">
+                    ⏹️ Stop Navigation
+                </button>
+                <button class="button primary" onclick="resetPosition()">
+                    🔄 Reset Position
+                </button>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📊 Navigation Stats</div>
+                
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="posX">0.0</div>
+                        <div class="stat-label">Position X (m)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="posY">0.0</div>
+                        <div class="stat-label">Position Y (m)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="heading">0</div>
+                        <div class="stat-label">Heading (°)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="velocity">0.0</div>
+                        <div class="stat-label">Velocity (m/s)</div>
+                    </div>
+                </div>
+
+                <div class="stat-box" style="margin-bottom: 15px;">
+                    <div class="stat-value" id="distance">0.0</div>
+                    <div class="stat-label">Total Distance (m)</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📡 Sensor Data</div>
+                <div class="sensor-panel" id="sensorData">
+                    Waiting for sensor data...
+                </div>
+            </div>
+        </div>
+
+        <div class="main-view">
+            <div class="header">
+                <h1>🧭 BRAMPS Indoor Navigation</h1>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div class="map-info-item" style="margin: 0;">
+                        <span class="map-info-label">Updates:</span>
+                        <span class="map-info-value" id="updateCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <canvas id="mapCanvas"></canvas>
+                
+                <div class="controls">
+                    <button class="control-btn" onclick="zoomIn()">🔍 Zoom In</button>
+                    <button class="control-btn" onclick="zoomOut()">🔍 Zoom Out</button>
+                    <button class="control-btn" onclick="centerView()">🎯 Center</button>
+                    <button class="control-btn" onclick="toggleTrail()">📍 Toggle Trail</button>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00d9ff;"></div>
+                        <span>Current Position</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(0, 217, 255, 0.3);"></div>
+                        <span>Movement Trail</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff4757;"></div>
+                        <span>Heading Direction</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let serverUrl = 'http://localhost:5000';
+        let currentSession = null;
+        let navigationActive = false;
+        let selectedFile = null;
+        let activeMapId = null;
+        let activeMapData = null;
+        let positionUpdateInterval = null;
+        let updateCount = 0;
+
+        // Canvas state
+        let canvas, ctx;
+        let mapImage = null;
+        let scale = 1.0;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let showTrail = true;
+        let positionHistory = [];
+
+        // Initialize
+        window.onload = function() {
+            canvas = document.getElementById('mapCanvas');
+            ctx = canvas.getContext('2d');
+            
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Canvas mouse events
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('wheel', handleWheel);
+            
+            // Load maps
+            refreshMaps();
+            
+            // Start rendering loop
+            requestAnimationFrame(render);
+        };
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function handleFileSelect(event) {
+            selectedFile = event.target.files[0];
+            if (selectedFile) {
+                document.getElementById('mapName').value = selectedFile.name.replace(/\.[^/.]+$/, "");
+            }
+        }
+
+        async function uploadMap() {
+            if (!selectedFile) {
+                showMessage('Please select a file first', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('name', document.getElementById('mapName').value);
+            formData.append('scale_meters_per_pixel', document.getElementById('mapScale').value);
+            formData.append('origin_x', '0');
+            formData.append('origin_y', '0');
+            formData.append('rotation_degrees', '0');
+
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/maps/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`Map uploaded successfully: ${result.map.name}`, 'success');
+                    refreshMaps();
+                    selectedFile = null;
+                    document.getElementById('mapFile').value = '';
+                } else {
+                    showMessage(`Upload failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error uploading map:', error);
+                showMessage(`Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshMaps() {
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/maps`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const select = document.getElementById('mapSelect');
+                    select.innerHTML = '<option value="">No map selected</option>';
+                    
+                    result.maps.forEach(map => {
+                        const option = document.createElement('option');
+                        option.value = map.id;
+                        option.textContent = `${map.name} (${map.width}x${map.height})`;
+                        if (map.id === result.active_map_id) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                    
+                    if (result.active_map_id) {
+                        loadMap(result.active_map_id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing maps:', error);
+            }
+        }
+
+        async function selectMap() {
+            const mapId = document.getElementById('mapSelect').value;
+            if (!mapId) return;
+            
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/maps/${mapId}/activate`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadMap(mapId);
+                    showMessage('Map activated', 'success');
+                }
+            } catch (error) {
+                console.error('Error activating map:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadMap(mapId) {
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                
+                // Get map metadata
+                const metaResponse = await fetch(`${serverUrl}/maps/${mapId}`);
+                const metaResult = await metaResponse.json();
+                
+                if (metaResult.success) {
+                    activeMapData = metaResult.map;
+                    activeMapId = mapId;
+                    
+                    // Load map image
+                    mapImage = new Image();
+                    mapImage.onload = function() {
+                        // Center and fit map
+                        centerView();
+                        console.log('Map loaded:', activeMapData.name);
+                    };
+                    mapImage.src = `${serverUrl}/maps/${mapId}/image`;
+                }
+            } catch (error) {
+                console.error('Error loading map:', error);
+            }
+        }
+
+        async function startNavigation() {
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                
+                const x = parseFloat(document.getElementById('startX').value);
+                const y = parseFloat(document.getElementById('startY').value);
+                const heading = parseFloat(document.getElementById('startHeading').value) * Math.PI / 180;
+                
+                const response = await fetch(`${serverUrl}/navigation/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        initial_x: x,
+                        initial_y: y,
+                        initial_heading: heading
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentSession = result.session_id;
+                    navigationActive = true;
+                    positionHistory = [];
+                    updateCount = 0;
+                    
+                    document.getElementById('navStatus').className = 'status-dot active';
+                    document.getElementById('navStatusText').textContent = 'Navigation Active';
+                    document.getElementById('startNavBtn').style.display = 'none';
+                    document.getElementById('stopNavBtn').style.display = 'block';
+                    
+                    // Start position updates
+                    positionUpdateInterval = setInterval(updatePosition, 100); // 10 Hz
+                    
+                    showMessage('Navigation started', 'success');
+                }
+            } catch (error) {
+                console.error('Error starting navigation:', error);
+                showMessage(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopNavigation() {
+            if (!currentSession) return;
+            
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                
+                const response = await fetch(`${serverUrl}/navigation/stop`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: currentSession})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    navigationActive = false;
+                    currentSession = null;
+                    
+                    document.getElementById('navStatus').className = 'status-dot idle';
+                    document.getElementById('navStatusText').textContent = 'Navigation Idle';
+                    document.getElementById('startNavBtn').style.display = 'block';
+                    document.getElementById('stopNavBtn').style.display = 'none';
+                    
+                    // Stop position updates
+                    if (positionUpdateInterval) {
+                        clearInterval(positionUpdateInterval);
+                        positionUpdateInterval = null;
+                    }
+                    
+                    showMessage('Navigation stopped', 'success');
+                }
+            } catch (error) {
+                console.error('Error stopping navigation:', error);
+            }
+        }
+
+        async function resetPosition() {
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                
+                const x = parseFloat(document.getElementById('startX').value);
+                const y = parseFloat(document.getElementById('startY').value);
+                const heading = parseFloat(document.getElementById('startHeading').value) * Math.PI / 180;
+                
+                const response = await fetch(`${serverUrl}/navigation/reset`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({x, y, heading})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    positionHistory = [];
+                    showMessage('Position reset', 'success');
+                }
+            } catch (error) {
+                console.error('Error resetting position:', error);
+            }
+        }
+
+        async function updatePosition() {
+            if (!navigationActive) return;
+            
+            try {
+                serverUrl = document.getElementById('serverUrl').value.trim();
+                const response = await fetch(`${serverUrl}/navigation/position`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const pos = result.position;
+                    
+                    // Update stats display
+                    document.getElementById('posX').textContent = pos.position.x.toFixed(2);
+                    document.getElementById('posY').textContent = pos.position.y.toFixed(2);
+                    document.getElementById('heading').textContent = pos.heading_degrees.toFixed(0);
+                    document.getElementById('velocity').textContent = pos.velocity.magnitude.toFixed(2);
+                    document.getElementById('distance').textContent = pos.total_distance.toFixed(2);
+                    document.getElementById('updateCount').textContent = ++updateCount;
+                    
+                    // Add to position history
+                    positionHistory.push({
+                        x: pos.position.x,
+                        y: pos.position.y,
+                        heading: pos.heading,
+                        pixel_x: pos.pixel_position?.x,
+                        pixel_y: pos.pixel_position?.y
+                    });
+                    
+                    // Limit history length
+                    if (positionHistory.length > 500) {
+                        positionHistory.shift();
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating position:', error);
+            }
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            
+            // Apply transformations
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            // Draw map if loaded
+            if (mapImage && mapImage.complete) {
+                ctx.drawImage(mapImage, 0, 0);
+            } else {
+                // Draw grid
+                drawGrid();
+            }
+            
+            // Draw position trail
+            if (showTrail && positionHistory.length > 1) {
+                drawTrail();
+            }
+            
+            // Draw current position
+            if (positionHistory.length > 0) {
+                drawPosition();
+            }
+            
+            ctx.restore();
+            
+            requestAnimationFrame(render);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#1e3a5f';
+            ctx.lineWidth = 1 / scale;
+            
+            const gridSize = 50; // 50 pixels = 5 meters at default scale
+            const startX = Math.floor(-offsetX / scale / gridSize) * gridSize;
+            const startY = Math.floor(-offsetY / scale / gridSize) * gridSize;
+            const endX = startX + canvas.width / scale + gridSize;
+            const endY = startY + canvas.height / scale + gridSize;
+            
+            for (let x = startX; x < endX; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, startY);
+                ctx.lineTo(x, endY);
+                ctx.stroke();
+            }
+            
+            for (let y = startY; y < endY; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(startX, y);
+                ctx.lineTo(endX, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawTrail() {
+            ctx.strokeStyle = 'rgba(0, 217, 255, 0.5)';
+            ctx.lineWidth = 3 / scale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            
+            for (let i = 0; i < positionHistory.length; i++) {
+                const point = positionHistory[i];
+                let px, py;
+                
+                if (activeMapData && point.pixel_x !== undefined) {
+                    px = point.pixel_x;
+                    py = point.pixel_y;
+                } else {
+                    // Use world coordinates scaled to pixels
+                    px = point.x * 10 + canvas.width / (2 * scale);
+                    py = -point.y * 10 + canvas.height / (2 * scale);
+                }
+                
+                if (i === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            
+            ctx.stroke();
+        }
+
+        function drawPosition() {
+            const pos = positionHistory[positionHistory.length - 1];
+            let px, py;
+            
+            if (activeMapData && pos.pixel_x !== undefined) {
+                px = pos.pixel_x;
+                py = pos.pixel_y;
+            } else {
+                // Use world coordinates scaled to pixels
+                px = pos.x * 10 + canvas.width / (2 * scale);
+                py = -pos.y * 10 + canvas.height / (2 * scale);
+            }
+            
+            // Draw position circle
+            ctx.fillStyle = '#00d9ff';
+            ctx.beginPath();
+            ctx.arc(px, py, 8 / scale, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw heading indicator
+            const headingLength = 25 / scale;
+            const headingX = px + Math.cos(pos.heading - Math.PI/2) * headingLength;
+            const headingY = py + Math.sin(pos.heading - Math.PI/2) * headingLength;
+            
+            ctx.strokeStyle = '#ff4757';
+            ctx.lineWidth = 3 / scale;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(headingX, headingY);
+            ctx.stroke();
+            
+            // Draw outer ring
+            ctx.strokeStyle = '#00d9ff';
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            ctx.arc(px, py, 12 / scale, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Canvas interaction
+        function handleMouseDown(e) {
+            isDragging = true;
+            dragStartX = e.clientX - offsetX;
+            dragStartY = e.clientY - offsetY;
+        }
+
+        function handleMouseMove(e) {
+            if (isDragging) {
+                offsetX = e.clientX - dragStartX;
+                offsetY = e.clientY - dragStartY;
+            }
+        }
+
+        function handleMouseUp(e) {
+            isDragging = false;
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = scale * delta;
+            
+            if (newScale >= 0.1 && newScale <= 5.0) {
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                
+                offsetX = mouseX - (mouseX - offsetX) * delta;
+                offsetY = mouseY - (mouseY - offsetY) * delta;
+                
+                scale = newScale;
+            }
+        }
+
+        function zoomIn() {
+            scale = Math.min(scale * 1.2, 5.0);
+        }
+
+        function zoomOut() {
+            scale = Math.max(scale * 0.8, 0.1);
+        }
+
+        function centerView() {
+            if (mapImage && mapImage.complete) {
+                scale = Math.min(canvas.width / mapImage.width, canvas.height / mapImage.height) * 0.9;
+                offsetX = (canvas.width - mapImage.width * scale) / 2;
+                offsetY = (canvas.height - mapImage.height * scale) / 2;
+            } else {
+                scale = 1.0;
+                offsetX = canvas.width / 2;
+                offsetY = canvas.height / 2;
+            }
+        }
+
+        function toggleTrail() {
+            showTrail = !showTrail;
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            
+            setTimeout(() => {
+                msg.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
